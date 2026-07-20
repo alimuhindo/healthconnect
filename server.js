@@ -12,6 +12,11 @@ const path = require("path");
 const ussdRoutes = require("./routes/ussd");
 const apiRoutes = require("./routes/api");
 
+// Auto-seed sample facilities on first boot (safe to run every time - it
+// checks if data already exists and skips if so). This avoids needing shell
+// access, which isn't available on Render's free tier.
+require("./db/seed");
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
