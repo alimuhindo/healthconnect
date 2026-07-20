@@ -1,0 +1,5 @@
+node_modules/
+db/health_connect.db
+db/health_connect.db-wal
+db/health_connect.db-shm
+.env

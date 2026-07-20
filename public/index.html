@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Health Connect — Facility Dashboard</title>
+<style>
+  :root {
+    --bg: #0f1f1c;
+    --panel: #16302b;
+    --panel-light: #1c3b34;
+    --accent: #3fb98c;
+    --accent-soft: #a8e6c9;
+    --text: #eaf4ef;
+    --text-dim: #9fb8b0;
+    --warn: #e0a63a;
+    --danger: #d9634a;
+    --border: #234e44;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    padding: 28px 36px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    letter-spacing: 0.3px;
+  }
+  header .sub {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-top: 4px;
+  }
+  .eyebrow {
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 1.5px;
+    color: var(--accent-soft);
+    font-weight: 600;
+  }
+  main {
+    padding: 28px 36px 60px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .stat-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+  }
+  .stat-card .num {
+    font-size: 1.9rem;
+    font-weight: 700;
+    color: var(--accent-soft);
+  }
+  .stat-card .label {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+  section {
+    margin-bottom: 40px;
+  }
+  section h2 {
+    font-size: 1.05rem;
+    border-left: 3px solid var(--accent);
+    padding-left: 10px;
+    margin-bottom: 14px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--panel);
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 0.88rem;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    color: var(--text-dim);
+    font-weight: 600;
+    background: var(--panel-light);
+  }
+  tr:last-child td { border-bottom: none; }
+  .slot-input {
+    width: 60px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 0.85rem;
+  }
+  button {
+    background: var(--accent);
+    color: #06231b;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:hover { background: var(--accent-soft); }
+  .badge {
+    padding: 2px 8px;
+    border-radius: 100px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .badge.low { background: rgba(217,99,74,0.2); color: var(--danger); }
+  .badge.ok { background: rgba(63,185,140,0.2); color: var(--accent-soft); }
+  .empty {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    padding: 16px;
+  }
+  #saveMsg {
+    font-size: 0.8rem;
+    color: var(--accent-soft);
+    margin-left: 10px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">Health Connect</div>
+  <h1>Facility &amp; Appointment Dashboard</h1>
+  <div class="sub">Live view of facility capacity, bookings and feedback across the pilot districts.</div>
+</header>
+
+<main>
+  <div class="stats" id="stats"></div>
+
+  <section>
+    <h2>Facilities</h2>
+    <table id="facilitiesTable">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Level</th>
+          <th>District</th>
+          <th>Services</th>
+          <th>Slots</th>
+          <th>Update</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Recent Appointments</h2>
+    <table id="appointmentsTable">
+      <thead>
+        <tr>
+          <th>Reference</th>
+          <th>Patient</th>
+          <th>Facility</th>
+          <th>Service</th>
+          <th>Channel</th>
+          <th>Time</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Feedback</h2>
+    <table id="feedbackTable">
+      <thead>
+        <tr><th>Patient</th><th>Message</th><th>Time</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+</main>
+
+<script>
+const API = "/api";
+
+async function loadStats() {
+  const res = await fetch(`${API}/stats`);
+  const s = await res.json();
+  document.getElementById("stats").innerHTML = `
+    <div class="stat-card"><div class="num">${s.facilityCount}</div><div class="label">Facilities</div></div>
+    <div class="stat-card"><div class="num">${s.appointmentCount}</div><div class="label">Appointments booked</div></div>
+    <div class="stat-card"><div class="num">${s.availableSlots}</div><div class="label">Slots available now</div></div>
+    <div class="stat-card"><div class="num">${s.totalSlots}</div><div class="label">Total capacity</div></div>
+  `;
+}
+
+async function loadFacilities() {
+  const res = await fetch(`${API}/facilities`);
+  const rows = await res.json();
+  const tbody = document.querySelector("#facilitiesTable tbody");
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">No facilities yet. Run "npm run seed" or add one via POST /api/facilities.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(f => `
+    <tr>
+      <td>${f.name}</td>
+      <td>${f.level}</td>
+      <td>${f.district}</td>
+      <td>${f.services}</td>
+      <td><span class="badge ${f.available_slots <= 3 ? 'low' : 'ok'}">${f.available_slots}/${f.total_capacity}</span></td>
+      <td>
+        <input class="slot-input" type="number" min="0" value="${f.available_slots}" id="slot-${f.id}" />
+        <button onclick="updateSlots(${f.id})">Save</button>
+        <span id="saved-${f.id}"></span>
+      </td>
+    </tr>
+  `).join("");
+}
+
+async function updateSlots(id) {
+  const val = document.getElementById(`slot-${id}`).value;
+  await fetch(`${API}/facilities/${id}/capacity`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ available_slots: parseInt(val, 10) })
+  });
+  document.getElementById(`saved-${id}`).id && (document.getElementById(`saved-${id}`).textContent = "Saved");
+  loadStats();
+  loadFacilities();
+}
+
+async function loadAppointments() {
+  const res = await fetch(`${API}/appointments`);
+  const rows = await res.json();
+  const tbody = document.querySelector("#appointmentsTable tbody");
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">No appointments booked yet.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(a => `
+    <tr>
+      <td>${a.reference}</td>
+      <td>${a.patient_phone}</td>
+      <td>${a.facility_name}</td>
+      <td>${a.service_type}</td>
+      <td>${a.channel}</td>
+      <td>${a.created_at}</td>
+    </tr>
+  `).join("");
+}
+
+async function loadFeedback() {
+  const res = await fetch(`${API}/feedback`);
+  const rows = await res.json();
+  const tbody = document.querySelector("#feedbackTable tbody");
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="3" class="empty">No feedback submitted yet.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(f => `
+    <tr><td>${f.patient_phone}</td><td>${f.message}</td><td>${f.created_at}</td></tr>
+  `).join("");
+}
+
+function refreshAll() {
+  loadStats();
+  loadFacilities();
+  loadAppointments();
+  loadFeedback();
+}
+
+refreshAll();
+setInterval(refreshAll, 15000); // auto-refresh every 15s so health workers see live updates
+</script>
+
+</body>
+</html>
