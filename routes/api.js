@@ -8,6 +8,7 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db/database");
 const { findFacilities, decrementSlot, generateReference } = require("./facilityService");
+const ugandaDistricts = require("../db/uganda_districts");
 
 // ---------- FACILITIES ----------
 
@@ -32,12 +33,12 @@ router.get("/facilities/nearest", (req, res) => {
   res.json(facilities);
 });
 
-// List distinct districts (used by the mobile app's "choose your area" picker)
+// List all districts in Uganda (used by the mobile app's "choose your area" picker).
+// Returns every district in the country, not just ones that currently have a
+// registered facility - so patients anywhere can pick their real district,
+// even before facilities have been added there yet.
 router.get("/facilities/districts", (req, res) => {
-  const rows = db
-    .prepare("SELECT DISTINCT district FROM facilities WHERE district != '' ORDER BY district")
-    .all();
-  res.json(rows.map((r) => r.district));
+  res.json(ugandaDistricts);
 });
 // Admin: update a facility's available capacity (health worker dashboard action)
 router.patch("/facilities/:id/capacity", (req, res) => {
