@@ -32,6 +32,13 @@ router.get("/facilities/nearest", (req, res) => {
   res.json(facilities);
 });
 
+// List distinct districts (used by the mobile app's "choose your area" picker)
+router.get("/facilities/districts", (req, res) => {
+  const rows = db
+    .prepare("SELECT DISTINCT district FROM facilities WHERE district != '' ORDER BY district")
+    .all();
+  res.json(rows.map((r) => r.district));
+});
 // Admin: update a facility's available capacity (health worker dashboard action)
 router.patch("/facilities/:id/capacity", (req, res) => {
   const { available_slots } = req.body;
@@ -103,6 +110,19 @@ router.get("/appointments", (req, res) => {
 router.get("/feedback", (req, res) => {
   const rows = db.prepare("SELECT * FROM feedback ORDER BY created_at DESC LIMIT 100").all();
   res.json(rows);
+});
+
+// Submit feedback from the mobile app
+router.post("/feedback", (req, res) => {
+  const { patient_phone, message } = req.body;
+  if (!patient_phone || !message) {
+    return res.status(400).json({ error: "patient_phone and message required" });
+  }
+  db.prepare("INSERT INTO feedback (patient_phone, message) VALUES (?, ?)").run(
+    patient_phone,
+    message
+  );
+  res.json({ success: true });
 });
 
 // ---------- STATS (for dashboard summary cards) ----------
