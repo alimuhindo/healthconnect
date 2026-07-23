@@ -1,14 +1,38 @@
 // routes/api.js
 // REST API used by (a) the admin web dashboard and (b) a future mobile app.
-// Kept intentionally simple (no auth) for a pilot/prototype stage.
-// Before going live, add authentication (e.g. JWT) on the /admin routes -
-// see README "Securing this before real deployment".
 
 const express = require("express");
 const router = express.Router();
 const db = require("../db/database");
 const { findFacilities, decrementSlot, generateReference } = require("./facilityService");
 const ugandaDistricts = require("../db/uganda_districts");
+
+// ---------- ADMIN AUTH ----------
+// Simple shared-password protection for the dashboard. Not enterprise-grade
+// security, but stops random visitors from seeing patient phone numbers or
+// editing facility capacity. Set ADMIN_PASSWORD as an environment variable in
+// Render (Settings tab there) - if not set, falls back to a default so local
+// testing still works.
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "healthconnect2026";
+
+function requireAdmin(req, res, next) {
+  const provided = req.header("x-admin-password");
+  if (provided !== ADMIN_PASSWORD) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  next();
+}
+
+// Login: the dashboard calls this once with the password the user typed.
+// If correct, the dashboard remembers the password itself and sends it as
+// a header on every future request to a protected route.
+router.post("/admin/login", (req, res) => {
+  const { password } = req.body;
+  if (password === ADMIN_PASSWORD) {
+    return res.json({ success: true });
+  }
+  res.status(401).json({ error: "Incorrect password" });
+});
 
 // ---------- FACILITIES ----------
 
@@ -34,14 +58,12 @@ router.get("/facilities/nearest", (req, res) => {
 });
 
 // List all districts in Uganda (used by the mobile app's "choose your area" picker).
-// Returns every district in the country, not just ones that currently have a
-// registered facility - so patients anywhere can pick their real district,
-// even before facilities have been added there yet.
 router.get("/facilities/districts", (req, res) => {
   res.json(ugandaDistricts);
 });
+
 // Admin: update a facility's available capacity (health worker dashboard action)
-router.patch("/facilities/:id/capacity", (req, res) => {
+router.patch("/facilities/:id/capacity", requireAdmin, (req, res) => {
   const { available_slots } = req.body;
   if (available_slots == null) return res.status(400).json({ error: "available_slots required" });
 
@@ -53,7 +75,7 @@ router.patch("/facilities/:id/capacity", (req, res) => {
 });
 
 // Admin: add a new facility
-router.post("/facilities", (req, res) => {
+router.post("/facilities", requireAdmin, (req, res) => {
   const { name, level, district, latitude, longitude, services, total_capacity, phone } = req.body;
   if (!name || !services) return res.status(400).json({ error: "name and services required" });
 
@@ -96,7 +118,7 @@ router.post("/appointments", (req, res) => {
 });
 
 // Admin: list recent appointments (used by dashboard)
-router.get("/appointments", (req, res) => {
+router.get("/appointments", requireAdmin, (req, res) => {
   const rows = db
     .prepare(
       `SELECT a.*, f.name AS facility_name
@@ -108,7 +130,7 @@ router.get("/appointments", (req, res) => {
 });
 
 // ---------- FEEDBACK ----------
-router.get("/feedback", (req, res) => {
+router.get("/feedback", requireAdmin, (req, res) => {
   const rows = db.prepare("SELECT * FROM feedback ORDER BY created_at DESC LIMIT 100").all();
   res.json(rows);
 });
